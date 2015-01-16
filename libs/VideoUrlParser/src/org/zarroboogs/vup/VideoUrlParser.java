@@ -26,7 +26,7 @@ public class VideoUrlParser {
     private static final boolean DEBUG = false;
 
     public interface OnParsedListener {
-        public void onParseSuccess(String urlname, String ulr);
+        public void onParseSuccess(String url, String name);
 
         public void onParseFailed();
     }
