@@ -12,7 +12,7 @@ import lib.org.zarroboogs.weibo.login.javabean.DoorImageAsyncTask.OnDoorOpenList
 import lib.org.zarroboogs.weibo.login.utils.LogTool;
 
 import org.apache.http.Header;
-import org.zarroboogs.util.net.LoginWeiboAsyncTask.LoginCallBack;
+import org.zarroboogs.util.net.LoginWeiboAsyncTask.LoginWeiboCallack;
 import org.zarroboogs.utils.Constants;
 import org.zarroboogs.utils.Utility;
 import org.zarroboogs.utils.WeiBaNetUtils;
@@ -71,7 +71,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements LoginCallBack,
+public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements LoginWeiboCallack,
         OnClickListener, OnGlobalLayoutListener, OnItemClickListener {
 
     public static final int AT_USER = 0x1000;
@@ -193,7 +193,7 @@ public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements 
         listView.setAdapter(listAdapter);
         listView.setOnItemClickListener(this);
 
-        setOnRepostWeiboListener(new AsyncHttpResponseHandler() {
+        setAutoRepostWeiboListener(new AsyncHttpResponseHandler() {
 
             @Override
             public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
@@ -203,14 +203,18 @@ public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements 
                 RequestResultBean sendResultBean = getRequestResultParser().parse(responseBody, RequestResultBean.class);
                 LogTool.D(TAG + "onSuccess " + sendResultBean.getMsg());
                 if (sendResultBean.getMsg().equals("未登录")) {
-                    doPreLogin(mAccountBean.getUname(), mAccountBean.getPwd());
+                    startAutoPreLogin(mAccountBean.getUname(), mAccountBean.getPwd());
                     hideDialogForWeiBo();
-                }
+                }else if (sendResultBean.getMsg().equals("抱歉！登录失败，请稍候再试")) {
+					startWebLogin();
+				}
 
                 if (sendResultBean.getCode().equals("100000")) {
                     hideDialogForWeiBo();
                     mEditText.setText("");
                     Toast.makeText(getApplicationContext(), "转发成功", Toast.LENGTH_SHORT).show();
+                    
+                    RepostWeiboWithAppSrcActivity.this.finish();
                 }
             }
 
@@ -221,7 +225,7 @@ public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements 
             }
         });
 
-        setOnLoginListener(new AsyncHttpResponseHandler() {
+        setAutoLogInLoginListener(new AsyncHttpResponseHandler() {
 
             @Override
             public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
@@ -231,6 +235,7 @@ public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements 
 
             @Override
             public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable error) {
+            	startWebLogin();
             }
         });
     }
@@ -366,6 +371,11 @@ public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements 
         }
     };
 
+    public boolean isMoreThan140(){
+        String charSequence = mEditText.getText().toString();
+        int count = Utility.length(charSequence);
+        return count > 140;
+    }
     public static int calculateWeiboLength(CharSequence c) {
 
         int len = 0;
@@ -410,7 +420,7 @@ public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements 
         super.onBackPressed();
     }
 
-    public void startLogIn() {
+    public void startWebLogin() {
         hideDialogForWeiBo();
         Intent intent = new Intent();
         intent.setClass(RepostWeiboWithAppSrcActivity.this, WebViewActivity.class);
@@ -419,9 +429,9 @@ public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements 
     }
 
     @Override
-    public void reSizeWeiboPictures(boolean isSuccess) {
+    public void onLonginWeiboCallback(boolean isSuccess) {
         if (!isSuccess) {
-            startLogIn();
+            startWebLogin();
         } else {
             final SendImgData sendImgData = SendImgData.getInstance();
 
@@ -483,6 +493,10 @@ public class RepostWeiboWithAppSrcActivity extends BaseLoginActivity implements 
                 break;
             }
             case R.id.sendWeiBoBtn: {
+            	if (isMoreThan140()) {
+            		Toast.makeText(getApplicationContext(), "字数超出限制", Toast.LENGTH_SHORT).show();
+            		return;
+				}
                 if (WeiBaNetUtils.isNetworkAvaliable(getApplicationContext())) {
                     showDialogForWeiBo();
                     repostWeibo();

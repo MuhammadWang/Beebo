@@ -49,6 +49,8 @@ import android.os.Bundle;
 import android.support.v4.content.Loader;
 import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
+import android.support.v7.widget.Toolbar;
+import android.support.v7.widget.Toolbar.OnMenuItemClickListener;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -68,6 +70,8 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import lib.org.zarroboogs.weibo.login.utils.LogTool;
 
 public class UserInfoFragment extends AbsTimeLineFragment<MessageListBean> implements
         MainTimeLineActivity.ScrollableListFragment,
@@ -140,9 +144,11 @@ public class UserInfoFragment extends AbsTimeLineFragment<MessageListBean> imple
     private AtomicInteger finishedWatcher;
 
     private TimeLinePosition position;
+    
+    private Toolbar mUserToolbar;
 
-    public static UserInfoFragment newInstance(UserBean userBean, String token) {
-        UserInfoFragment fragment = new UserInfoFragment(userBean, token);
+    public static UserInfoFragment newInstance(Toolbar toolbar,UserBean userBean, String token) {
+        UserInfoFragment fragment = new UserInfoFragment(userBean, token, toolbar);
         fragment.setArguments(new Bundle());
         return fragment;
     }
@@ -447,9 +453,13 @@ public class UserInfoFragment extends AbsTimeLineFragment<MessageListBean> imple
         // final int height = viewPager.getHeight();
         final int height = Utility.dip2px(200);
         final int width = Utility.getMaxLeftWidthOrHeightImageViewCanRead(height);
-        final String picPath = userBean.getCover_image();
+        String picPath = userBean.getCover_image();
+        if (TextUtils.isEmpty(picPath)) {
+			picPath = "http://img.t.sinajs.cn/t5/skin/public/profile_cover/062.jpg";
+		}
         blur.setAlpha(0f);
         blur.setOriImageUrl(picPath);
+        LogTool.D("mCoverBlureImage: UserInfo_ path: " + picPath);
         ArrayList<ImageView> imageViewArrayList = new ArrayList<ImageView>();
         imageViewArrayList.add(cover);
         imageViewArrayList.add(blur);
@@ -498,7 +508,8 @@ public class UserInfoFragment extends AbsTimeLineFragment<MessageListBean> imple
         }
     };
 
-    public UserInfoFragment(UserBean userBean, String token) {
+    public UserInfoFragment(UserBean userBean, String token, Toolbar toolbar) {
+    	this.mUserToolbar = toolbar;
         this.userBean = userBean;
         this.token = token;
     }
@@ -545,9 +556,36 @@ public class UserInfoFragment extends AbsTimeLineFragment<MessageListBean> imple
                 && (((MainTimeLineActivity) getActivity()).getLeftMenuFragment()).getCurrentIndex() == LeftMenuFragment.PROFILE_INDEX) {
             buildActionBarAndViewPagerTitles();
         }
-
+        
     }
+    
+	public boolean editMyFileOnItemClick() {
+		if (isMyself() && isOpenedFromMainPage()) {
+		    Intent intent = new Intent(getActivity(), EditMyProfileActivity.class);
+		    intent.putExtra(Constants.USERBEAN, GlobalContext.getInstance().getAccountBean().getInfo());
+		    startActivity(intent);
+		    return true;
+		} else {
+		    return false;
+		}
+	}
+	
+	public void refreshMyProFile() {
+		startRefreshMenuAnimation();
+		finishedWatcher = new AtomicInteger(3);
+		fetchLastestUserInfoFromServer();
+		fetchTopicInfoFromServer();
+		loadNewMsg();
+	}
+	
 
+	public void editMyProFile() {
+		Menu menu = mUserToolbar.getMenu();
+		MenuItem edit = menu.findItem(R.id.menu_edit);
+		edit.setVisible(GlobalContext.getInstance().getAccountBean().isBlack_magic());
+		refreshItem = menu.findItem(R.id.menu_refresh_my_profile);
+	}
+    
     private void fetchTopicInfoFromServer() {
         topicListTask = new TopicListTask();
         topicListTask.executeOnExecutor(MyAsyncTask.THREAD_POOL_EXECUTOR);
@@ -565,10 +603,10 @@ public class UserInfoFragment extends AbsTimeLineFragment<MessageListBean> imple
         ((MainTimeLineActivity) getActivity()).setCurrentFragment(this);
 
         if (Utility.isDevicePort()) {
-            ((MainTimeLineActivity) getActivity()).setTitle(getString(R.string.profile));
+            ((MainTimeLineActivity) getActivity()).setTitle(getString(R.string.weibo_change_account));
             // getBaseToolbar().setLogo(R.drawable.ic_menu_profile);
         } else {
-            ((MainTimeLineActivity) getActivity()).setTitle(getString(R.string.profile));
+            ((MainTimeLineActivity) getActivity()).setTitle(getString(R.string.weibo_change_account));
             // getBaseToolbar().setLogo(R.drawable.beebo_launcher);
         }
     }
@@ -671,40 +709,7 @@ public class UserInfoFragment extends AbsTimeLineFragment<MessageListBean> imple
         Utility.stopListViewScrollingAndScrollToTop(getListView());
     }
 
-    @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        super.onCreateOptionsMenu(menu, inflater);
-        if (isMyself() && isOpenedFromMainPage()) {
-            inflater.inflate(R.menu.actionbar_menu_newuserinfofragment_main_page, menu);
-            MenuItem edit = menu.findItem(R.id.menu_edit);
-            edit.setVisible(GlobalContext.getInstance().getAccountBean().isBlack_magic());
-            refreshItem = menu.findItem(R.id.menu_refresh_my_profile);
-
-        }
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.menu_refresh_my_profile:
-                startRefreshMenuAnimation();
-                finishedWatcher = new AtomicInteger(3);
-                fetchLastestUserInfoFromServer();
-                fetchTopicInfoFromServer();
-                loadNewMsg();
-                return true;
-            case R.id.menu_edit:
-                if (isMyself() && isOpenedFromMainPage()) {
-                    Intent intent = new Intent(getActivity(), EditMyProfileActivity.class);
-                    intent.putExtra(Constants.USERBEAN, GlobalContext.getInstance().getAccountBean().getInfo());
-                    startActivity(intent);
-                    return true;
-                } else {
-                    return super.onOptionsItemSelected(item);
-                }
-        }
-        return super.onOptionsItemSelected(item);
-    }
+   
 
     private void startRefreshMenuAnimation() {
         LayoutInflater inflater = (LayoutInflater) getActivity().getSystemService(Context.LAYOUT_INFLATER_SERVICE);

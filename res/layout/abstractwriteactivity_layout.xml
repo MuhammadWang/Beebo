@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:background="?attr/colorPrimary"
-        android:minHeight="?attr/actionBarSize"
+        app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
         app:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar" />
 
     <org.zarroboogs.weibo.widget.SmileyPicker
@@ -88,7 +88,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:minHeight="180dp"
-            android:layout_above="@+id/ll_bottom_menu"
             android:fadeScrollbars="true"
             android:gravity="left|top"
             android:hint="@string/say_something"

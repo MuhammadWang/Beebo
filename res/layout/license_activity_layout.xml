@@ -10,8 +10,8 @@
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:background="?attr/colorPrimary"
-        android:minHeight="?attr/actionBarSize"
         app:theme="@style/ThemeOverlay.AppCompat.ActionBar"
+        app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
         app:title="@string/pref_open_source_license_title" >
     </android.support.v7.widget.Toolbar>
 

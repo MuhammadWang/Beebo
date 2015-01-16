@@ -1,15 +1,16 @@
 
 package org.zarroboogs.weibo.fragment;
 
+import org.zarroboogs.utils.Constants;
 import org.zarroboogs.utils.file.FileLocationMethod;
 import org.zarroboogs.weibo.GlobalContext;
 import org.zarroboogs.weibo.R;
 import org.zarroboogs.weibo.activity.AccountActivity;
 import org.zarroboogs.weibo.activity.MainTimeLineActivity;
+import org.zarroboogs.weibo.activity.MyInfoActivity;
 import org.zarroboogs.weibo.activity.NearbyTimeLineActivity;
-import org.zarroboogs.weibo.bean.AccountBean;
 import org.zarroboogs.weibo.bean.TimeLinePosition;
-import org.zarroboogs.weibo.db.task.AccountDBTask;
+import org.zarroboogs.weibo.bean.UserBean;
 import org.zarroboogs.weibo.db.task.CommentToMeTimeLineDBTask;
 import org.zarroboogs.weibo.db.task.MentionCommentsTimeLineDBTask;
 import org.zarroboogs.weibo.db.task.MentionWeiboTimeLineDBTask;
@@ -20,6 +21,7 @@ import org.zarroboogs.weibo.support.utils.AnimationUtility;
 import org.zarroboogs.weibo.support.utils.AppEventAction;
 import org.zarroboogs.weibo.support.utils.Utility;
 import org.zarroboogs.weibo.support.utils.ViewUtility;
+import org.zarroboogs.weibo.widget.BlurImageView;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -34,22 +36,20 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
-import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.TextView;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.TreeSet;
 
 public class LeftMenuFragment extends BaseStateFragment {
 
-    private Layout layout;
+    private LeftDrawerViewHolder layout;
 
     private int currentIndex = -1;
 
@@ -88,6 +88,7 @@ public class LeftMenuFragment extends BaseStateFragment {
     public static final int SETTING_INDEX = 8;
 
     private Toolbar mToolbar;
+    private BlurImageView mCoverBlureImage;
 
     public static LeftMenuFragment newInstance() {
         LeftMenuFragment fragment = new LeftMenuFragment();
@@ -128,7 +129,7 @@ public class LeftMenuFragment extends BaseStateFragment {
         }
 
         rightFragments.append(HOME_INDEX, ((MainTimeLineActivity) getActivity()).getFriendsTimeLineFragment());
-        rightFragments.append(MENTIONS_INDEX, ((MainTimeLineActivity) getActivity()).getMentionsTimeLineFragment());
+        rightFragments.append(MENTIONS_INDEX, ((MainTimeLineActivity) getActivity()).getAtMeTimeLineFragment());
         rightFragments.append(COMMENTS_INDEX, ((MainTimeLineActivity) getActivity()).getCommentsTimeLineFragment());
         rightFragments.append(SEARCH_INDEX, ((MainTimeLineActivity) getActivity()).getSearchFragment());
         rightFragments.append(DM_INDEX, ((MainTimeLineActivity) getActivity()).getDMFragment());
@@ -138,7 +139,24 @@ public class LeftMenuFragment extends BaseStateFragment {
         switchCategory(currentIndex);
 
         layout.nickname.setText(GlobalContext.getInstance().getCurrentAccountName());
-        layout.avatar.setAdapter(new AvatarAdapter(layout.avatar));
+        
+        TimeLineBitmapDownloader.getInstance().display(layout.avatar, -1, -1,
+                GlobalContext.getInstance().getAccountBean().getInfo().getAvatar_large(),
+                FileLocationMethod.avatar_large);
+        layout.avatar.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+	            Intent intent = new Intent(getActivity(), MyInfoActivity.class);
+	            intent.putExtra(Constants.TOKEN, GlobalContext.getInstance().getAccountBean().getAccess_token());
+
+	            UserBean userBean = new UserBean();
+	            userBean.setId(GlobalContext.getInstance().getCurrentAccountId());
+	            intent.putExtra("user", userBean);
+	            intent.putExtra(Constants.ACCOUNT, GlobalContext.getInstance().getAccountBean());
+	            startActivity(intent);
+			}
+		});
     }
 
     public void switchCategory(int position) {
@@ -202,7 +220,6 @@ public class LeftMenuFragment extends BaseStateFragment {
     private void showAccountSwitchPage() {
         Intent intent = AccountActivity.newIntent();
         startActivity(intent);
-        getActivity().finish();
     }
 
     private void showSettingPage() {
@@ -224,7 +241,7 @@ public class LeftMenuFragment extends BaseStateFragment {
                 public void onReceive(Context context, Intent intent) {
                     LocalBroadcastManager.getInstance(getActivity()).unregisterReceiver(this);
                     if (currentIndex == HOME_INDEX) {
-                        mToolbar.setTitle(R.string.home);
+                        mToolbar.setTitle(R.string.weibo_home_page);
                         showHomePageImp();
                     }
 
@@ -317,7 +334,7 @@ public class LeftMenuFragment extends BaseStateFragment {
         ViewUtility.findViewById(getActivity(), R.id.scrollToTopBtn).setVisibility(View.VISIBLE);
         mToolbar.getMenu().clear();
 
-        ((MentionsTimeLineFragment) m).buildActionBarAndViewPagerTitles(mentionsTabIndex);
+        ((AtMeTimeLineFragment) m).buildActionBarAndViewPagerTitles(mentionsTabIndex);
     }
 
     public int getCurrentIndex() {
@@ -618,11 +635,14 @@ public class LeftMenuFragment extends BaseStateFragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        final ScrollView view = (ScrollView) inflater.inflate(R.layout.left_slidingdrawer_contents, container, false);
+        final ScrollView view = (ScrollView) inflater.inflate(R.layout.main_timeline_left_drawer_layout, container, false);
 
-        layout = new Layout();
+        mCoverBlureImage = ViewUtility.findViewById(view, R.id.coverBlureImage);
+        displayCover();
+        
+        layout = new LeftDrawerViewHolder();
 
-        layout.avatar = (Spinner) view.findViewById(R.id.avatar);
+        layout.avatar = (ImageView) view.findViewById(R.id.avatar);
         layout.nickname = (TextView) view.findViewById(R.id.nickname);
 
         layout.home = (LinearLayout) view.findViewById(R.id.btn_home);
@@ -635,6 +655,12 @@ public class LeftMenuFragment extends BaseStateFragment {
         layout.homeCount = (TextView) view.findViewById(R.id.tv_home_count);
         layout.mentionCount = (TextView) view.findViewById(R.id.tv_mention_count);
         layout.commentCount = (TextView) view.findViewById(R.id.tv_comment_count);
+        
+        layout.leftDrawerSettingBtn = (ImageButton) view.findViewById(R.id.leftDrawerSettingBtn);
+        
+        layout.homeButton = (Button) view.findViewById(R.id.homeButton);
+        layout.mentionButton = (Button) view.findViewById(R.id.mentionButton);
+        layout.commentButton = (Button) view.findViewById(R.id.commentButton);
 
         boolean blackMagic = GlobalContext.getInstance().getAccountBean().isBlack_magic();
         if (!blackMagic) {
@@ -643,6 +669,17 @@ public class LeftMenuFragment extends BaseStateFragment {
         }
         return view;
     }
+
+	public void displayCover() {
+//		final String picPath = "file:///android_asset/coverImage.jpg";//GlobalContext.getInstance().getAccountBean().getInfo().getCover_image();
+//        LogTool.D("mCoverBlureImage: path: " + picPath);
+//        Uri uri =  Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://"
+//        	    + getActivity().getResources().getResourcePackageName(R.drawable.cover_image) + "/"
+//        	    + getActivity().getResources().getResourceTypeName(R.drawable.cover_image) + "/"
+//        	    + getActivity().getResources().getResourceEntryName(R.drawable.cover_image));
+        mCoverBlureImage.setImageResource(R.drawable.cover_image);//.setOriImageUrl(picPath);
+        mCoverBlureImage.setAlpha(0.5f);
+	}
 
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
@@ -655,6 +692,8 @@ public class LeftMenuFragment extends BaseStateFragment {
         layout.dm.setOnClickListener(onClickListener);
         layout.fav.setOnClickListener(onClickListener);
 
+        layout.leftDrawerSettingBtn.setOnClickListener(onClickListener);
+        
         mToolbar = (Toolbar) getActivity().findViewById(R.id.mainTimeLineToolBar);
     }
 
@@ -678,10 +717,6 @@ public class LeftMenuFragment extends BaseStateFragment {
                     showSearchPage(false);
                     drawButtonsBackground(SEARCH_INDEX);
                     break;
-                case R.id.btn_profile:
-                    showProfilePage(false);
-                    drawButtonsBackground(PROFILE_INDEX);
-                    break;
                 case R.id.btn_location:
                     startActivity(new Intent(getActivity(), NearbyTimeLineActivity.class));
                     // drawButtonsBackground(5);
@@ -694,45 +729,56 @@ public class LeftMenuFragment extends BaseStateFragment {
                     showDMPage(false);
                     drawButtonsBackground(DM_INDEX);
                     break;
-                case R.id.btn_setting:
-                    showSettingPage();
-                    break;
-                case R.id.btn_logout:
-                    showAccountSwitchPage();
-                    break;
+                case R.id.leftDrawerSettingBtn:{
+                	showSettingPage();
+                	break;
+                }
             }
             ((MainTimeLineActivity) getActivity()).closeLeftDrawer();
         }
     };
 
     private void drawButtonsBackground(int position) {
-        layout.home.setBackgroundResource(R.drawable.btn_drawer_menu);
-        layout.mention.setBackgroundResource(R.drawable.btn_drawer_menu);
-        layout.comment.setBackgroundResource(R.drawable.btn_drawer_menu);
-        layout.search.setBackgroundResource(R.drawable.btn_drawer_menu);
-        // layout.location.setBackgroundResource(R.color.transparent);
-        // layout.setting.setBackgroundResource(R.color.transparent);
-        layout.dm.setBackgroundResource(R.drawable.btn_drawer_menu);
-        layout.fav.setBackgroundResource(R.drawable.btn_drawer_menu);
-        // layout.logout.setBackgroundResource(R.color.transparent);
+    	layout.homeButton.setTextColor(getResources().getColor(R.color.draw_text_color));
+    	layout.mentionButton.setTextColor(getResources().getColor(R.color.draw_text_color));
+    	
+    	layout.dm.setTextColor(getResources().getColor(R.color.draw_text_color));
+		layout.fav.setTextColor(getResources().getColor(R.color.draw_text_color));
+		layout.search.setTextColor(getResources().getColor(R.color.draw_text_color));
+		
+//		layout.home.setBackgroundResource(R.drawable.btn_drawer_menu);
+//		layout.mention.setBackgroundResource(R.drawable.btn_drawer_menu);
+//		layout.comment.setBackgroundResource(R.drawable.btn_drawer_menu);
+//		layout.search.setBackgroundResource(R.drawable.btn_drawer_menu);
+//		layout.location.setBackgroundResource(R.color.transparent);
+//		layout.setting.setBackgroundResource(R.color.transparent);
+//		layout.dm.setBackgroundResource(R.drawable.btn_drawer_menu);
+//		layout.fav.setBackgroundResource(R.drawable.btn_drawer_menu);
+//		layout.logout.setBackgroundResource(R.color.transparent);
         switch (position) {
             case HOME_INDEX:
-                layout.home.setBackgroundResource(R.color.ics_blue_semi);
+//                layout.home.setBackgroundResource(R.color.ics_blue_semi);
+            	layout.homeButton.setTextColor(getResources().getColor(R.color.md_actionbar_bg_color));
                 break;
             case MENTIONS_INDEX:
-                layout.mention.setBackgroundResource(R.color.ics_blue_semi);
+//                layout.mention.setBackgroundResource(R.color.ics_blue_semi);
+            	layout.mentionButton.setTextColor(getResources().getColor(R.color.md_actionbar_bg_color));
                 break;
             case COMMENTS_INDEX:
-                layout.comment.setBackgroundResource(R.color.ics_blue_semi);
+//                layout.comment.setBackgroundResource(R.color.ics_blue_semi);
+            	layout.commentButton.setTextColor(getResources().getColor(R.color.md_actionbar_bg_color));
                 break;
             case SEARCH_INDEX:
-                layout.search.setBackgroundResource(R.color.ics_blue_semi);
+//                layout.search.setBackgroundResource(R.color.ics_blue_semi);
+            	layout.search.setTextColor(getResources().getColor(R.color.md_actionbar_bg_color));
                 break;
             case DM_INDEX:
-                layout.dm.setBackgroundResource(R.color.ics_blue_semi);
+//                layout.dm.setBackgroundResource(R.color.ics_blue_semi);
+            	layout.dm.setTextColor(getResources().getColor(R.color.md_actionbar_bg_color));
                 break;
             case FAV_INDEX:
-                layout.fav.setBackgroundResource(R.color.ics_blue_semi);
+//                layout.fav.setBackgroundResource(R.color.ics_blue_semi);
+            	layout.fav.setTextColor(getResources().getColor(R.color.md_actionbar_bg_color));
                 break;
         // case 5:
         // layout.location.setBackgroundResource(R.color.ics_blue_semi);
@@ -793,100 +839,25 @@ public class LeftMenuFragment extends BaseStateFragment {
         }
     }
 
-    private class AvatarAdapter extends BaseAdapter {
 
-        ArrayList<AccountBean> data = new ArrayList<AccountBean>();
+    private class LeftDrawerViewHolder {
 
-        int count = 0;
-
-        public AvatarAdapter(Spinner spinner) {
-            data.addAll(AccountDBTask.getAccountList());
-            if (data.size() == 1) {
-                count = 1;
-            } else {
-                count = data.size() - 1;
-            }
-            Iterator<AccountBean> iterator = data.iterator();
-            while (iterator.hasNext()) {
-                AccountBean accountBean = iterator.next();
-                if (accountBean.getUid().equals(GlobalContext.getInstance().getAccountBean().getUid())) {
-                    iterator.remove();
-                    break;
-                }
-            }
-
-        }
-
-        @Override
-        public int getCount() {
-            return count;
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return null;
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return 0;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            View view = getLayoutInflater(null).inflate(R.layout.slidingdrawer_avatar, parent, false);
-            ImageView iv = (ImageView) view.findViewById(R.id.avatar);
-            TimeLineBitmapDownloader.getInstance().display(iv, -1, -1,
-                    GlobalContext.getInstance().getAccountBean().getInfo().getAvatar_large(),
-                    FileLocationMethod.avatar_large);
-
-            return view;
-        }
-
-        @Override
-        public View getDropDownView(int position, View convertView, ViewGroup parent) {
-            View view = getLayoutInflater(null).inflate(R.layout.slidingdrawer_avatar_dropdown, parent, false);
-            TextView nickname = (TextView) view.findViewById(R.id.nickname);
-            ImageView avatar = (ImageView) view.findViewById(R.id.avatar);
-
-            if (data.size() > 0) {
-                final AccountBean accountBean = data.get(position);
-                TimeLineBitmapDownloader.getInstance().display(avatar, -1, -1, accountBean.getInfo().getAvatar_large(),
-                        FileLocationMethod.avatar_large);
-
-                nickname.setText(accountBean.getUsernick());
-
-                view.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-
-                        Intent start = MainTimeLineActivity.newIntent(accountBean);
-                        getActivity().startActivity(start);
-                        getActivity().finish();
-
-                    }
-                });
-            } else {
-                avatar.setVisibility(View.GONE);
-                nickname.setTextColor(getResources().getColor(R.color.gray));
-                nickname.setText(getString(R.string.dont_have_other_account));
-            }
-            return view;
-        }
-    }
-
-    private class Layout {
-
-        Spinner avatar;
+        ImageView avatar;
 
         TextView nickname;
 
         LinearLayout home;
+        
+        Button homeButton;
 
         LinearLayout mention;
 
+        Button mentionButton;
+        
         LinearLayout comment;
 
+        Button commentButton;
+        
         TextView homeCount;
 
         TextView mentionCount;
@@ -899,6 +870,8 @@ public class LeftMenuFragment extends BaseStateFragment {
         Button dm;
 
         Button fav;
+        
+        ImageButton leftDrawerSettingBtn;
     }
 
 }

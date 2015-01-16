@@ -6,7 +6,6 @@ import org.zarroboogs.weibo.GlobalContext;
 import org.zarroboogs.weibo.R;
 import org.zarroboogs.weibo.activity.AccountActivity;
 import org.zarroboogs.weibo.activity.MainTimeLineActivity;
-import org.zarroboogs.weibo.activity.NearbyTimeLineActivity;
 import org.zarroboogs.weibo.adapter.FriendsTimeLineListNavAdapter;
 import org.zarroboogs.weibo.bean.AccountBean;
 import org.zarroboogs.weibo.bean.GroupBean;
@@ -38,7 +37,6 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.BaseAdapter;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.Spinner;
@@ -50,8 +48,6 @@ import java.util.List;
 import java.util.TreeSet;
 
 public class RightMenuFragment extends BaseStateFragment {
-
-    private Layout layout;
 
     private int currentIndex = -1;
 
@@ -91,7 +87,7 @@ public class RightMenuFragment extends BaseStateFragment {
 
     public static final String SWITCH_GROUP_KEY = "switch_group";
     private PullToRefreshListView mPullToRefreshListView;
-    private BaseAdapter mBaseAdapter;
+    private FriendsTimeLineListNavAdapter mBaseAdapter;
 
     public static RightMenuFragment newInstance() {
         RightMenuFragment fragment = new RightMenuFragment();
@@ -132,7 +128,7 @@ public class RightMenuFragment extends BaseStateFragment {
         }
 
         rightFragments.append(HOME_INDEX, ((MainTimeLineActivity) getActivity()).getFriendsTimeLineFragment());
-        rightFragments.append(MENTIONS_INDEX, ((MainTimeLineActivity) getActivity()).getMentionsTimeLineFragment());
+        rightFragments.append(MENTIONS_INDEX, ((MainTimeLineActivity) getActivity()).getAtMeTimeLineFragment());
         rightFragments.append(COMMENTS_INDEX, ((MainTimeLineActivity) getActivity()).getCommentsTimeLineFragment());
         rightFragments.append(SEARCH_INDEX, ((MainTimeLineActivity) getActivity()).getSearchFragment());
         rightFragments.append(DM_INDEX, ((MainTimeLineActivity) getActivity()).getDMFragment());
@@ -301,7 +297,7 @@ public class RightMenuFragment extends BaseStateFragment {
         ft.show(m);
         ft.commit();
 
-        ((MentionsTimeLineFragment) m).buildActionBarAndViewPagerTitles(mentionsTabIndex);
+        ((AtMeTimeLineFragment) m).buildActionBarAndViewPagerTitles(mentionsTabIndex);
     }
 
     public int getCurrentIndex() {
@@ -597,7 +593,7 @@ public class RightMenuFragment extends BaseStateFragment {
             name.add(b.getName());
         }
 
-        String[] valueArray = name.toArray(new String[0]);
+        String[] valueArray = name.toArray(new String[name.size()]);
         return valueArray;
     }
 
@@ -606,12 +602,6 @@ public class RightMenuFragment extends BaseStateFragment {
         final RelativeLayout view = (RelativeLayout) inflater.inflate(R.layout.right_slidingdrawer_contents, container,
                 false);
 
-        layout = new Layout();
-
-        layout.profile = (Button) view.findViewById(R.id.btn_profile);
-        layout.setting = (Button) view.findViewById(R.id.btn_setting);
-        layout.logout = (Button) view.findViewById(R.id.btn_logout);
-
         mPullToRefreshListView = (PullToRefreshListView) view.findViewById(R.id.rightGroupListView);
         mPullToRefreshListView.setAdapter(mBaseAdapter);
         mPullToRefreshListView.setOnItemClickListener(new OnItemClickListener() {
@@ -619,6 +609,8 @@ public class RightMenuFragment extends BaseStateFragment {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 ((MainTimeLineActivity) getActivity()).closeRightDrawer();
+
+                mBaseAdapter.setSelectId(position - 1);
                 Intent mIntent = new Intent(AppEventAction.SWITCH_WEIBO_GROUP_BROADCAST);
                 mIntent.putExtra(SWITCH_GROUP_KEY, position - 1);
                 LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(mIntent);
@@ -631,51 +623,8 @@ public class RightMenuFragment extends BaseStateFragment {
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        layout.profile.setOnClickListener(onClickListener);
-        layout.setting.setOnClickListener(onClickListener);
-        layout.logout.setOnClickListener(onClickListener);
     }
 
-    private View.OnClickListener onClickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            // getSlidingMenu().toggle();
-            switch (v.getId()) {
-                case R.id.btn_home:
-                    showHomePage(false);
-                    break;
-                case R.id.btn_mention:
-                    showMentionPage(false);
-                    break;
-                case R.id.btn_comment:
-                    showCommentPage(false);
-                    break;
-                case R.id.btn_search:
-                    showSearchPage(false);
-                    break;
-                case R.id.btn_profile:
-                    showProfilePage(false);
-                    break;
-                case R.id.btn_location:
-                    startActivity(new Intent(getActivity(), NearbyTimeLineActivity.class));
-                    // drawButtonsBackground(5);
-                    break;
-                case R.id.btn_favourite:
-                    showFavPage(false);
-                    break;
-                case R.id.btn_dm:
-                    showDMPage(false);
-                    break;
-                case R.id.btn_setting:
-                    showSettingPage();
-                    break;
-                case R.id.btn_logout:
-                    showAccountSwitchPage();
-                    break;
-            }
-            ((MainTimeLineActivity) getActivity()).closeRightDrawer();
-        }
-    };
 
     private void setTitle(int res) {
         ((MainTimeLineActivity) getActivity()).setTitle(res);
@@ -766,14 +715,4 @@ public class RightMenuFragment extends BaseStateFragment {
             return view;
         }
     }
-
-    private class Layout {
-        // 注销
-        Button logout;
-        // 个人资料
-        Button profile;
-        // 设置
-        Button setting;
-    }
-
 }

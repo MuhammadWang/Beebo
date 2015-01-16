@@ -63,11 +63,11 @@ public class SettingUtils {
         String value = SettingHelper.getSharedPreferences(getContext(), SettingActivity.THEME, "1");
 
         switch (Integer.valueOf(value)) {
-            case 1:
-                return R.style.AppTheme_Light;
-
-            case 2:
-                return R.style.AppTheme_Dark;
+//            case 1:
+//                return R.style.AppTheme_Light;
+//
+//            case 2:
+//                return R.style.AppTheme_Dark;
 
             default:
                 return R.style.AppTheme_Light;
@@ -178,7 +178,8 @@ public class SettingUtils {
     // end water mark setting
 
     public static boolean getEnableAutoRefresh() {
-        return SettingHelper.getSharedPreferences(getContext(), SettingActivity.AUTO_REFRESH, false);
+    	return false;
+//        return SettingHelper.getSharedPreferences(getContext(), SettingActivity.AUTO_REFRESH, false);
     }
 
     public static boolean getEnableBigAvatar() {
@@ -186,7 +187,7 @@ public class SettingUtils {
     }
 
     public static boolean getEnableSound() {
-        return SettingHelper.getSharedPreferences(getContext(), SettingActivity.SOUND, true)
+        return SettingHelper.getSharedPreferences(getContext(), SettingActivity.SOUND_OF_PULL_TO_FRESH, true)
                 && Utility.isSystemRinger(getContext());
     }
 
@@ -359,4 +360,7 @@ public class SettingUtils {
         return SettingHelper.getSharedPreferences(getContext(), SettingActivity.UPLOAD_BIG_PIC, true);
     }
 
+    public static boolean isNaviGationBarIm(){
+    	return SettingHelper.getSharedPreferences(getContext(), SettingActivity.SETTING_PREF_NAVIGATIONBAR_MD, true);
+    }
 }

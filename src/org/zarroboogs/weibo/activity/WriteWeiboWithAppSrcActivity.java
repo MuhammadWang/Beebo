@@ -11,7 +11,7 @@ import lib.org.zarroboogs.weibo.login.javabean.RequestResultBean;
 import lib.org.zarroboogs.weibo.login.utils.LogTool;
 
 import org.apache.http.Header;
-import org.zarroboogs.util.net.LoginWeiboAsyncTask.LoginCallBack;
+import org.zarroboogs.util.net.LoginWeiboAsyncTask.LoginWeiboCallack;
 import org.zarroboogs.utils.Constants;
 import org.zarroboogs.utils.SendBitmapWorkerTask;
 import org.zarroboogs.utils.Utility;
@@ -34,8 +34,6 @@ import org.zarroboogs.weibo.widget.SmileyPicker;
 import org.zarroboogs.weibo.widget.pulltorefresh.PullToRefreshBase;
 import org.zarroboogs.weibo.widget.pulltorefresh.PullToRefreshBase.OnRefreshListener;
 import org.zarroboogs.weibo.widget.pulltorefresh.PullToRefreshListView;
-
-import u.aly.br;
 
 import com.loopj.android.http.AsyncHttpResponseHandler;
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
@@ -75,7 +73,7 @@ import android.widget.TableLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements LoginCallBack, OnClickListener,
+public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements LoginWeiboCallack, OnClickListener,
         OnGlobalLayoutListener, OnItemClickListener, OnSharedPreferenceChangeListener {
 
     public static final int AT_USER = 0x1000;
@@ -257,18 +255,23 @@ public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements L
         listView.setAdapter(listAdapter);
         listView.setOnItemClickListener(this);
 
-        setOnSendWeiboListener(new AsyncHttpResponseHandler() {
+        setAutoSendWeiboListener(new AsyncHttpResponseHandler() {
 
             @Override
             public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
                 LogTool.D(TAG + "onSuccess " + new String(responseBody));
 
                 RequestResultBean sendResultBean = getRequestResultParser().parse(responseBody, RequestResultBean.class);
+                
                 LogTool.D(TAG + "onSuccess " + sendResultBean.getMsg());
+                
+                
                 if (sendResultBean.getMsg().equals("未登录")) {
-                    doPreLogin(mAccountBean.getUname(), mAccountBean.getPwd());
-                    hideDialogForWeiBo();
-                }
+                    startAutoPreLogin(mAccountBean.getUname(), mAccountBean.getPwd());
+                    
+                }else if (sendResultBean.getMsg().equals("抱歉！登录失败，请稍候再试")) {
+					startWebLogin();
+				}
                 if (sendResultBean.getCode().equals("100000")) {
                     onSendFinished(true);
                 }
@@ -277,11 +280,12 @@ public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements L
 
             @Override
             public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable error) {
+//            	startWebLogin();
                 onSendFinished(false);
             }
         });
 
-        setOnLoginListener(new AsyncHttpResponseHandler() {
+        setAutoLogInLoginListener(new AsyncHttpResponseHandler() {
 
             @Override
             public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
@@ -290,6 +294,7 @@ public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements L
 
             @Override
             public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable error) {
+            	startWebLogin();
             }
         });
     }
@@ -420,36 +425,6 @@ public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements L
         getAppSrcSharedPreference().unregisterOnSharedPreferenceChangeListener(this);
     }
 
-    // private void findAllEmotionImageView(ViewGroup vg) {
-    // int count = vg.getChildCount();
-    // for (int i = 0; i < count; i++) {
-    // View v = vg.getChildAt(i);
-    // if (v instanceof TableRow) {
-    // findAllEmotionImageView((TableRow) v);
-    // } else {
-    // ((ImageView) v).setOnClickListener(new OnClickListener() {
-    //
-    // @Override
-    // public void onClick(View v) {
-    // // TODO Auto-generated method stub
-    // String text = ((ImageView) v).getContentDescription() + "";
-    // int index = mEditText.getSelectionStart();// 获取光标所在位置
-    // Editable edit = mEditText.getEditableText();// 获取EditText的文字
-    // if (index < 0 || index >= edit.length()) {
-    // edit.append(text);
-    // } else {
-    // edit.insert(index, text);// 光标所在位置插入文字
-    // }
-    // String content = mEditText.getText().toString();
-    // TimeLineUtility.addEmotions(mEditText, content);
-    // mEditText.setSelection(index + text.length());
-    // }
-    // });
-    // mEmotionArrayList.add((ImageView) v);
-    // }
-    // }
-    // }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -517,7 +492,7 @@ public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements L
         }
     }
 
-    public void startLogIn() {
+    public void startWebLogin() {
         hideDialogForWeiBo();
         Intent intent = new Intent();
         intent.putExtra(BundleArgsConstants.ACCOUNT_EXTRA, mAccountBean);
@@ -526,37 +501,41 @@ public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements L
     }
 
     @Override
-    public void reSizeWeiboPictures(boolean isSuccess) {
+    public void onLonginWeiboCallback(boolean isSuccess) {
         if (!isSuccess) {
-            startLogIn();
+            startWebLogin();
         } else {
-            sendImgData = SendImgData.getInstance();
-
-            ArrayList<String> send = sendImgData.getSendImgs();
-            final int count = send.size();
-
-            if (count > 0) {
-                for (int i = 0; i < send.size(); i++) {
-                    SendBitmapWorkerTask sendBitmapWorkerTask = new SendBitmapWorkerTask(getApplicationContext(),
-                            new OnCacheDoneListener() {
-                                @Override
-                                public void onCacheDone(String newFile) {
-                                    // TODO Auto-generated method stub
-                                    Log.d(LOGIN_TAG, "has create new File : " + newFile);
-                                    sendImgData.addReSizeImg(newFile);
-                                    if (sendImgData.getReSizeImgs().size() == count) {
-                                        sendWeibo(sendImgData);
-                                    }
-                                }
-                            });
-                    sendBitmapWorkerTask.execute(send.get(i));
-                }
-            } else {
-
-                sendWeibo(sendImgData);
-            }
+            startPicCacheAndSendWeibo();
         }
     }
+
+	private void startPicCacheAndSendWeibo() {
+		sendImgData = SendImgData.getInstance();
+
+		ArrayList<String> send = sendImgData.getSendImgs();
+		final int count = send.size();
+
+		if (count > 0) {
+		    for (int i = 0; i < send.size(); i++) {
+		        SendBitmapWorkerTask sendBitmapWorkerTask = new SendBitmapWorkerTask(getApplicationContext(),
+		                new OnCacheDoneListener() {
+		                    @Override
+		                    public void onCacheDone(String newFile) {
+		                        // TODO Auto-generated method stub
+		                        Log.d(LOGIN_TAG, "has create new File : " + newFile);
+		                        sendImgData.addReSizeImg(newFile);
+		                        if (sendImgData.getReSizeImgs().size() == count) {
+		                            sendWeibo(sendImgData);
+		                        }
+		                    }
+		                });
+		        sendBitmapWorkerTask.execute(send.get(i));
+		    }
+		} else {
+
+		    sendWeibo(sendImgData);
+		}
+	}
 
     private void sendWeibo(SendImgData sendImgData) {
         String text = mEditText.getEditableText().toString();
@@ -585,6 +564,11 @@ public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements L
         return false;
     }
 
+    public boolean isMoreThan140(){
+        String charSequence = mEditText.getText().toString();
+        int count = Utility.length(charSequence);
+        return count > 140;
+    }
     protected void insertTopic() {
         int currentCursor = mEditText.getSelectionStart();
         Editable editable = mEditText.getText();
@@ -629,12 +613,16 @@ public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements L
                 break;
             }
             case R.id.sendWeiBoBtn: {
+            	if (isMoreThan140()) {
+            		Toast.makeText(getApplicationContext(), R.string.weibo_text_large_error, Toast.LENGTH_SHORT).show();
+            		return;
+				}
                 if (WeiBaNetUtils.isNetworkAvaliable(getApplicationContext())) {
                     if (checkDataEmpty()) {
                         mEmptyToast.show();
                     } else {
                         showDialogForWeiBo();
-                        reSizeWeiboPictures(true);
+                        startPicCacheAndSendWeibo();
                     }
                 } else {
                     Toast.makeText(getApplicationContext(), R.string.net_not_avaliable, Toast.LENGTH_SHORT).show();
@@ -749,6 +737,7 @@ public class WriteWeiboWithAppSrcActivity extends BaseLoginActivity implements L
                 Log.d("LIST_CAXCHE", " " + file.getName());
                 file.delete();
             }
+            this.finish();
         } else {
             Toast.makeText(getApplicationContext(), R.string.send_wei_failed, Toast.LENGTH_SHORT).show();
         }
